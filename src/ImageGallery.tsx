@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
+  Button,
   Dimensions,
   FlatList,
   Image,
   Modal,
+  Platform,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -11,6 +13,8 @@ import {
 import { ImageObject, IProps, RenderImageProps } from './types';
 import ImagePreview from './ImagePreview';
 import SwipeContainer from './SwipeContainer';
+import RNFetchBlob from 'rn-fetch-blob';
+import RNFS from 'react-native-fs';
 
 const { height: deviceHeight, width: deviceWidth } = Dimensions.get('window');
 
@@ -38,6 +42,7 @@ const ImageGallery = (props: IProps & typeof defaultProps) => {
     thumbResizeMode,
     thumbSize,
     disableSwipe,
+    onIndexChange
   } = props;
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -52,7 +57,7 @@ const ImageGallery = (props: IProps & typeof defaultProps) => {
 
   const scrollToIndex = (i: number) => {
     setActiveIndex(i);
-
+    onIndexChange(i)
     if (topRef?.current) {
       topRef.current.scrollToIndex({
         animated: true,
@@ -100,16 +105,17 @@ const ImageGallery = (props: IProps & typeof defaultProps) => {
             style={
               activeIndex === index
                 ? [
-                    styles.thumb,
-                    styles.activeThumb,
-                    { borderColor: thumbColor },
-                    { width: thumbSize, height: thumbSize },
-                  ]
+                  styles.thumb,
+                  styles.activeThumb,
+                  { borderColor: thumbColor },
+                  { width: thumbSize, height: thumbSize },
+                ]
                 : [styles.thumb, { width: thumbSize, height: thumbSize }]
             }
             source={{ uri: item.thumbUrl ? item.thumbUrl : item.url }}
           />
         )}
+
       </TouchableOpacity>
     );
   };
@@ -146,9 +152,81 @@ const ImageGallery = (props: IProps & typeof defaultProps) => {
     [thumbSize]
   );
 
+  const getDownloadDirectory = () => {
+    if (Platform.OS === 'android') {
+      return RNFetchBlob.fs.dirs.DownloadDir;
+    } else {
+      return RNFetchBlob.fs.dirs.DocumentDir;
+    }
+  };
+
+  const DownloadImage = async () => {
+    try {
+      const image = images[activeIndex];
+      console.log('Image:', image);
+      const url = image.url;
+
+      console.log('Downloading image:', url);
+
+      const response = await RNFetchBlob.config({
+        fileCache: true,
+      }).fetch('GET', url);
+
+      const imagePath = response.path();
+
+      const downloadDir = getDownloadDirectory();
+
+      const filenameRegex = /fileName=([^&]*)/;
+      const filenameMatch = url.match(filenameRegex);
+      const filename = filenameMatch ? filenameMatch[1] : null;
+      console.log('Filename:', filename);
+      if(filename!==null || filename!=="") {
+      const destPath = `${downloadDir}/${filename}`;
+
+      await RNFetchBlob.fs.mv(imagePath, destPath);
+      }
+
+    } catch (error) {
+      console.error('Error downloading image:', error);
+    }
+  };
+
+
   return (
     <Modal animationType={isOpen ? 'slide' : 'fade'} visible={isOpen}>
       <View style={styles.container}>
+
+
+        <TouchableOpacity
+          style={{ position: 'absolute', top: 20, right: 20, zIndex: 999 }}
+          onPress={close}
+        >
+          <Button title="Close" onPress={close} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{ position: 'absolute', top: 20, right: 90, zIndex: 999 }}
+          onPress={DownloadImage}
+        >
+          <Button title="Download" onPress={DownloadImage} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{ position: 'absolute', top: 20, left: 90, zIndex: 999 }}
+          onPress={() => scrollToIndex(activeIndex + 1)}
+        >
+          <Button title="Next" onPress={() => scrollToIndex(activeIndex + 1)} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{ position: 'absolute', top: 20, left: 20, zIndex: 999 }}
+          onPress={() => scrollToIndex(activeIndex - 1)}
+        >
+          <Button title="Prev" onPress={() => scrollToIndex(activeIndex - 1)} />
+        </TouchableOpacity>
+
+
+
+
         <SwipeContainer
           disableSwipe={disableSwipe}
           setIsDragging={setIsDragging}
@@ -182,7 +260,9 @@ const ImageGallery = (props: IProps & typeof defaultProps) => {
             showsHorizontalScrollIndicator={false}
             style={[styles.bottomFlatlist, { bottom: thumbSize }]}
           />
+
         )}
+
         {renderHeaderComponent ? (
           <View style={styles.header}>
             {renderHeaderComponent(images[activeIndex], activeIndex)}
