@@ -12,6 +12,7 @@ export interface IProps {
   thumbSize?: number;
   thumbResizeMode?: ImageResizeMode;
   disableSwipe?: boolean;
+  onIndexChange: (index: number) => void;
 
   renderCustomThumb?: (
     item: ImageObject,
