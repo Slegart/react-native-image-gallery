@@ -13,7 +13,8 @@ import {
 import { ImageObject, IProps, RenderImageProps } from './types';
 import ImagePreview from './ImagePreview';
 import SwipeContainer from './SwipeContainer';
-import RNFetchBlob from 'rn-fetch-blob';
+//import RNFetchBlob from 'rn-fetch-blob';
+import BlobUtil from 'react-native-blob-util';
 import RNFS from 'react-native-fs';
 
 const { height: deviceHeight, width: deviceWidth } = Dimensions.get('window');
@@ -154,23 +155,32 @@ const ImageGallery = (props: IProps & typeof defaultProps) => {
 
   const getDownloadDirectory = () => {
     if (Platform.OS === 'android') {
-      return RNFetchBlob.fs.dirs.DownloadDir;
+      //return RNFetchBlob.fs.dirs.DownloadDir;
+      return RNFS.DownloadDirectoryPath;
     } else {
-      return RNFetchBlob.fs.dirs.DocumentDir;
+      //return RNFetchBlob.fs.dirs.DocumentDir;
+      return RNFS.DocumentDirectoryPath;
     }
   };
 
   const DownloadImage = async () => {
     try {
       const image = images[activeIndex];
-      console.log('Image:', image);
       const url = image.url;
-
-      console.log('Downloading image:', url);
-
-      const response = await RNFetchBlob.config({
+ 
+     /* const response = await RNFetchBlob.config({
         fileCache: true,
       }).fetch('GET', url);
+      */
+
+      BlobUtil
+
+      console.log("url: ",url)
+     const response = await BlobUtil.config({
+      fileCache: true,
+    }).fetch('GET', url);
+
+    console.log('Response:', response);
 
       const imagePath = response.path();
 
@@ -183,7 +193,16 @@ const ImageGallery = (props: IProps & typeof defaultProps) => {
       if(filename!==null || filename!=="") {
       const destPath = `${downloadDir}/${filename}`;
 
-      await RNFetchBlob.fs.mv(imagePath, destPath);
+      //await RNFetchBlob.fs.mv(imagePath, destPath);
+      console.log("from path: ", imagePath)
+      console.log('Moving file to:', destPath);
+      await BlobUtil.fs.cp(imagePath, destPath)
+      .then(() => {
+        console.log('File moved');
+      })
+      .catch((error: any) => {
+        console.error('Error moving file:', error);
+      });
       }
 
     } catch (error) {
